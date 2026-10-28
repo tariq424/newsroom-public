@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Newsroom</title>
+<style>
+  :root { --bg:#f3f0e9; --panel:#ffffff; --line:#ccd3da; --text:#1d2733; --dim:#5d6b7a; --acc:#d99400; --ok:#1a9e6b; --bad:#d93a3a; --blue:#2f7fe0; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 Inter, Segoe UI, system-ui, sans-serif; }
+  header { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:12px 18px; border-bottom:1px solid var(--line); }
+  header h1 { white-space:nowrap; }
+  header h1 { font-size:17px; margin:0; letter-spacing:.5px; }
+  header h1 span { color:var(--acc); }
+  .pill { font-size:12px; padding:3px 9px; border-radius:99px; border:1px solid var(--line); color:var(--dim); }
+  .pill.ok { color:var(--ok); border-color:#2a5a35; } .pill.bad { color:var(--bad); border-color:#d9a0a0; }
+  main { display:grid; grid-template-columns: 340px 1fr 420px; gap:14px; padding:14px; height:calc(100vh - 54px); }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; overflow:auto; min-height:0; }
+  main>section:nth-child(1) { background:#e9f1fd; } main>section:nth-child(2) { background:#fdf3d8; } main>section:nth-child(3) { background:#e7f5ec; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:1.5px; color:var(--dim); margin:0 0 10px; display:flex; justify-content:space-between; align-items:center; }
+  .card { border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:10px; background:#ffffff; }
+  .card h3 { font-size:14px; margin:0 0 4px; }
+  .card a { color:var(--blue); font-size:12px; word-break:break-all; }
+  .card p { margin:6px 0; color:var(--dim); font-size:13px; }
+  button { background:#ffffff; color:var(--text); border:1px solid var(--line); border-radius:7px; padding:7px 12px; cursor:pointer; font:inherit; }
+  button:hover:not(:disabled) { border-color:var(--acc); }
+  button:disabled { opacity:.45; cursor:default; }
+  button.primary { background:var(--acc); color:#111; border-color:var(--acc); font-weight:700; }
+  input, select { background:#ffffff; color:var(--text); border:1px solid var(--line); border-radius:7px; padding:7px 9px; font:inherit; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .status { font-size:12px; color:var(--acc); }
+  .err { color:var(--bad); font-size:12px; margin:6px 0; white-space:pre-wrap; }
+  .muted { color:var(--dim); font-size:12px; }
+  .bar { height:6px; background:#e3ded2; border-radius:3px; overflow:hidden; margin:8px 0; }
+  .bar i { display:block; height:100%; background:var(--acc); width:0; transition:width .4s; }
+  .stages { display:flex; flex-wrap:wrap; gap:4px; margin:6px 0; }
+  .stages span { font-size:11px; padding:2px 6px; border-radius:4px; background:#ffffff; color:var(--dim); }
+  .stages span.done { color:var(--ok); } .stages span.now { color:#111; background:var(--acc); }
+  .beat { border-left:3px solid var(--acc); padding:4px 10px; margin:8px 0; }
+  .beat b { font-size:11px; color:var(--dim); display:block; }
+  pre.log { font:11px/1.4 Consolas, monospace; color:var(--dim); white-space:pre-wrap; margin:0; max-height:160px; overflow:auto; }
+  video { width:100%; max-height:62vh; background:#000; border-radius:8px; }
+  .nav { display:flex; justify-content:space-between; align-items:center; margin:8px 0; }
+  hr { border:0; border-top:1px solid var(--line); margin:14px 0; }
+  @media (max-width: 1100px) { main { grid-template-columns:1fr; height:auto; } }
+.pubtag{background:#2e7d32;color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;vertical-align:middle}
+.newtag{background:#f5c542;color:#111;font-size:11px;padding:2px 6px;border-radius:4px;vertical-align:middle}
+button.done{background:#2e7d32;color:#fff;border-color:#2e7d32;opacity:.85}
+label.approve{display:flex;gap:8px;align-items:center;margin:8px 0;font-weight:600}
+label.approve input{width:20px;height:20px}
+button.go{background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700}
+.fb{margin-top:10px;display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}.fb textarea{flex:1;min-width:240px}
+.rules{list-style:none;padding:0;margin:0}.rules li{padding:4px 0;border-bottom:1px solid rgba(128,128,128,.2)}
+.rules .tag{font-size:11px;padding:1px 6px;border-radius:8px;background:rgba(128,128,128,.25);margin-right:6px}.rules .x{float:right;padding:0 6px}
+.fb textarea{font-size:16px;line-height:1.5}
+.panel{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.panel h3{font-size:14px}
+.panel-review{background:#fdf3d8}.panel-published{background:#e7f5ec}.panel-rejected{background:#fde8e8}
+.rejtag{background:#b3261e;color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;vertical-align:middle}
+</style>
+</head>
+<body>
+<header>
+  <h1>THE <span>NEWSROOM</span></h1>
+  <span id="pvs" class="pill">Video Studio …</span>
+  <span id="ppub" class="pill">Publisher …</span>
+  <span id="pdoc" class="pill">Inbox …</span>
+  <span id="pauto" class="pill"></span><span class="pill" id="pcount"></span>
+  <span id="pq" class="pill" style="display:none"></span>
+</header>
+<main>
+  <!-- Left: inbox -->
+  <section>
+    <h2>Inbox <button id="refresh" title="Read the Newsroom Inbox doc again">Refresh</button></h2>
+    <div id="inboxerr" class="err"></div>
+    <div id="inbox"><p class="muted">Loading…</p></div>
+    <div class="row"><button id="more" style="display:none">More…</button></div>
+    <div class="row" style="margin-top:8px"><span class="muted">Generate makes</span>
+      <select id="genmode"><option value="short">a Short</option><option value="smoke">a 30-second smoke test</option>
+        <option value="long">an explainer</option><option value="both">explainer + Short</option></select></div>
+    <hr>
+    <h2>Add an item by hand</h2>
+    <input id="addh" placeholder="Headline" style="width:100%;margin-bottom:6px">
+    <input id="addu" placeholder="https://source-url" style="width:100%;margin-bottom:6px">
+    <div class="row"><input id="addp" placeholder="Pitch (optional)" style="flex:1"><button id="addbtn">Add</button></div>
+    <div id="addmsg" class="muted"></div>
+    <hr>
+    <h2>Set up a Google Alert</h2>
+    <div class="row"><input id="topic" placeholder="e.g. Latest AI News" style="flex:1"><button id="alertbtn">Create alert</button></div>
+    <div id="alertmsg" class="muted"></div>
+  </section>
+
+  <!-- Center: the active job -->
+  <section>
+    <h2>Active job <span id="mode" class="muted"></span></h2>
+    <div id="active"><p class="muted">Loading…</p></div>
+    <hr>
+    <h2>Newsroom log</h2>
+    <pre id="log" class="log"></pre>
+  </section>
+
+  <!-- Right: review panels (lists only; one shared player pops up) -->
+  <section>
+    <h2>Review <span class="muted" style="font-weight:normal;text-transform:none;letter-spacing:0">— pick a video; the player pops up</span></h2>
+    <div id="panels"><p class="muted">Loading…</p></div>
+  </section>
+  <section>
+    <h2>House style <span class="muted" style="font-size:12px;font-weight:normal">learned from your feedback; every new script and visual follows these</span></h2>
+    <div id="style"><p class="muted">No rules yet. Give feedback on a staged video.</p></div>
+    <div class="row" style="margin-top:8px"><select id="starea"><option>script</option><option>humor</option><option>visuals</option><option>voice</option><option selected>general</option></select>
+      <input id="strule" placeholder="Add a rule by hand" style="flex:1"><button id="stadd">Add</button></div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path, body) {
+  const r = await fetch(path, body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : {});
+  const j = await r.json().catch(() => ({error: 'HTTP ' + r.status}));
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+let offset = 0, channels = [], visibility = 'Private', mode = 'short', pubQueue = []; const pidx = {review: 0, published: 0, rejected: 0};
+
+async function status() {
+  try {
+    const s = await api('/api/status');
+    channels = s.channels || []; visibility = s.visibility || 'Private'; mode = s.mode || 'short';
+    if (!$('genmode').dataset.set) { $('genmode').value = mode; $('genmode').dataset.set = 1; }
+    $('pvs').textContent = s.video_studio.ok ? ('Video Studio ' + (s.video_studio.current ? 'busy: ' + s.video_studio.current : 'ready')) : 'Video Studio down';
+    $('pvs').className = 'pill ' + (s.video_studio.ok ? 'ok' : 'bad');
+    $('ppub').textContent = s.publisher.ok ? 'Publisher ready' : 'Publisher down'; $('ppub').className = 'pill ' + (s.publisher.ok ? 'ok' : 'bad');
+    $('pdoc').textContent = s.inbox_error ? 'Inbox: problem' : ('Inbox (' + (s.inbox_source === 'file' ? 'local file' : 'Google Doc') + ')');
+    $('pdoc').className = 'pill ' + (s.inbox_error ? 'bad' : 'ok');
+    $('pauto').textContent = s.auto ? 'Auto-generate: on' : 'Auto-generate: off'; $('pauto').className = 'pill ' + (s.auto ? 'ok' : '');
+    pubQueue = s.publish_queue || [];
+    const c = s.counts || {};
+    $('pcount').textContent = `Queue (oldest first): ${c.waiting} waiting · ${c.making} making · ${c.to_review} to review · ${c.published_24h} published today (${c.published} total) · ${c.made_today}/${c.max_per_day} made in 24 h${c.paused_jobs ? ' · ' + c.paused_jobs + ' paused' : ''}${c.stalled ? ' · ' + c.stalled + ' stalled' : ''}${c.cap ? ' · waiting: ' + c.cap : ''}${c.paused ? ' · HOLD' : ''}${c.laptop && c.laptop.enabled ? ' · laptop: ' + (c.laptop.making ? 'making ' + c.laptop.making : (c.laptop.up === false ? 'off/unreachable' : c.laptop.ac === false ? 'on battery' : 'standby')) : ''}`;
+    $('pcount').className = 'pill ' + (c.made_today >= c.max_per_day || c.paused ? 'bad' : 'ok');
+    $('pq').style.display = s.pending_writes.length ? '' : 'none'; $('pq').textContent = s.pending_writes.length + ' doc line(s) waiting';
+    $('log').textContent = (s.log || []).join('\n'); $('log').scrollTop = 1e9;
+  } catch (e) { $('pvs').textContent = 'Newsroom error'; }
+}
+
+async function loadInbox(refresh) {
+  try {
+    const r = refresh ? await api('/api/inbox/refresh', {}) : await api('/api/inbox?offset=' + offset);
+    if (refresh) offset = 0;
+    $('inboxerr').textContent = r.error || '';
+    const el = $('inbox');
+    if (!r.items.length) { el.innerHTML = '<p class="muted">' + (r.total ? '' : 'No pending items.') + '</p>'; }
+    else el.innerHTML = r.items.map(it => `<div class="card">
+        <h3>${it.breaking ? '<span class="err">BREAKING</span> ' : ''}${esc(it.headline)}</h3><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.url)}</a>
+        <p>${esc(it.pitch)}</p>
+        ${it.brief ? `<details><summary class="muted">Research brief (${it.brief.split(/\s+/).length} words)</summary><p>${esc(it.brief)}</p></details>` : ''}
+        ${it.error ? `<div class="err">${esc(it.error)}</div>` : ''}
+        <div class="row"><button class="primary" data-gen="${it.id}" ${['researching','rendering'].includes(it.status) ? 'disabled' : ''}>
+          ${it.status === 'researching' ? 'Researching…' : it.status === 'rendering' ? 'Rendering…' : it.status === 'failed' ? 'Try again' : 'Generate Video'}</button>
+          ${it.job ? `<span class="muted">job ${esc(it.job)}</span>` : ''}</div></div>`).join('');
+    $('more').style.display = r.offset + r.items.length < r.total ? '' : 'none';
+    el.querySelectorAll('[data-gen]').forEach(b => b.onclick = async () => {
+      b.disabled = true; b.textContent = 'Starting…';
+      try { await api('/api/generate', {id: b.dataset.gen, mode: $('genmode').value}); } catch (e) { alert(e.message); }
+      loadInbox(); active();
+    });
+  } catch (e) { $('inboxerr').textContent = e.message; }
+}
+
+async function active() {
+  try {
+    const r = await api('/api/active'); const it = r.item; const el = $('active');
+    if (!it) { el.innerHTML = '<p class="muted">Nothing being made. Press Generate Video on an inbox item.</p>'; return; }
+    const st = it.stages || [], done = it.done || [];
+    const pct = st.length ? Math.round(100 * done.length / st.length) : (it.status === 'staged' || it.status === 'published' ? 100 : 3);
+    const beats = (it.script && it.script.beats) || [];
+    el.innerHTML = `<div class="card"><h3>${esc(it.vs_title || it.headline)}</h3>
+      <div class="status">${esc(it.status)}${it.pause_req && it.status === 'rendering' ? ' (pausing at the next safe point)' : ''}${it.job ? ' · job ' + esc(it.job) : ''}${it.vs_stage ? ' · ' + esc(it.vs_stage) : ''}${r.queue > 1 ? ' · ' + r.queue + ' in progress' : ''}</div>
+      <div class="row" style="margin:6px 0">${it.status === 'rendering' && !it.pause_req ? `<button data-act="pause" data-id="${it.id}">Pause</button>` : ''}
+        ${['paused','stalled'].includes(it.status) ? `<button class="primary" data-act="resume" data-id="${it.id}">Resume</button>` : ''}
+        ${it.status === 'stalled' ? `<button data-act="retry" data-id="${it.id}">Retry from scratch</button>` : ''}</div>
+      ${(r.held || []).filter(h => h.id !== it.id).map(h => `<div class="muted">${esc(h.status)} on the ${esc(h.worker)}: ${esc(h.headline.slice(0, 70))} ${h.resume_req ? `<b>resumes as soon as the ${esc(h.worker)} is free</b>` : `<button class="primary" data-act="resume" data-id="${h.id}">Resume</button>`}</div>`).join('')}
+      ${it.error ? `<div class="err">${esc(it.error)}</div>` : ''}
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="stages">${st.map(s => `<span class="${done.includes(s) ? 'done' : s === it.vs_stage ? 'now' : ''}">${esc(s)}</span>`).join('')}</div></div>
+      <h2>Script ${beats.length ? '' : '<span class="muted">(appears once Video Studio has written it)</span>'}</h2>
+      ${beats.map((b, i) => `<div class="beat"><b>${esc(b.id || 'beat ' + (i + 1))}${b.title ? ' · ' + esc(b.title) : ''}</b>${esc(b.vo)}</div>`).join('')}
+      ${(it.job_log || []).length ? `<h2>Video Studio log</h2><pre class="log">${esc(it.job_log.join('\n'))}</pre>` : ''}`;
+    el.querySelectorAll('[data-act]').forEach(b => b.onclick = async () => {
+      const act = b.dataset.act;
+      if (act === 'retry' && !confirm('Start this video over as a new job? The stalled job stays on disk.')) return;
+      try { await api('/api/job/' + act, {id: b.dataset.id}); } catch (e) { alert(e.message); }
+      active();
+    });
+  } catch (e) { $('active').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+
+async function loadStyle() {
+  let rules = [];
+  try { rules = (await (await fetch('/api/style')).json()).rules || []; } catch (e) { return; }
+  $('style').innerHTML = rules.length ? '<ul class="rules">' + rules.map(r => `<li><span class="tag">${esc(r.area)}</span> ${esc(r.rule)}
+    <button class="x" data-rid="${esc(r.id)}" title="Remove this rule">✕</button></li>`).join('') + '</ul>' : '<p class="muted">No rules yet. Give feedback on a staged video.</p>';
+  $('style').querySelectorAll('[data-rid]').forEach(b => b.onclick = async () => {
+    if (!confirm('Remove this rule?')) return;
+    await fetch('/api/style/' + b.dataset.rid, {method: 'DELETE'}); loadStyle();
+  });
+}
+
+async function loadStaged() {
+  try {
+    const r = await api('/api/staged?all=1');
+    const rem = it => (it.kinds || ['short']).filter(k => !((it.published || {})[k]));
+    const lists = {
+      review: r.items.filter(it => it.status !== 'rejected' && rem(it).length > 0),
+      published: r.items.filter(it => it.status !== 'rejected' && rem(it).length === 0),
+      rejected: r.items.filter(it => it.status === 'rejected'),
+    };
+    const tagFor = (key, it) => key === 'rejected' ? '<span class="rejtag">REJECTED</span>'
+      : key === 'published' ? '<span class="pubtag">PUBLISHED</span>'
+      : (it.status === 'published' ? '<span class="pubtag">PARTLY PUBLISHED</span>' : '<span class="newtag">TO REVIEW</span>');
+    const panel = (key, title, cls) => {
+      const items = lists[key];
+      if (!items.length) return `<div class="panel ${cls}"><h3>${title} (0)</h3><p class="muted">Nothing here.</p></div>`;
+      pidx[key] = Math.min(pidx[key], items.length - 1);
+      const it = items[pidx[key]];
+      return `<div class="panel ${cls}"><div class="nav"><h3 style="margin:0">${title} (${items.length})</h3>
+        <span><button data-nav="${key}|-1" ${items.length > 1 ? '' : 'disabled'}>‹ Prev</button>
+        <span class="muted">${pidx[key] + 1} of ${items.length}</span>
+        <button data-nav="${key}|1" ${items.length > 1 ? '' : 'disabled'}>Next ›</button></span></div>
+        <div class="card" style="margin:8px 0"><h3>${tagFor(key, it)} ${esc(it.vs_title || it.headline)}</h3>
+        <div class="status">${esc(it.status)}${it.channel ? ' · ' + esc(it.channel) : ''} · job ${esc(it.job)}</div>
+        ${it.error ? `<div class="err">${esc(it.error)}</div>` : ''}
+        ${it.move_pending ? `<div class="err">Move uploaded to ${esc(it.move_pending.to)} — open it to confirm deleting it from ${esc(it.move_pending.from)}</div>` : ''}
+        ${(() => { const oc = Object.keys(it.pub_channels || {}); return oc.length > 1 ? `<div class="muted">On: ${oc.map(esc).join(', ')}</div>` : ''; })()}</div>
+        <button class="primary" data-watch="${esc(it.id)}">Watch / decide</button></div>`;
+    };
+    let bulk = '';
+    const review = lists.review, approvedN = review.filter(it => it.approved).length;
+    if (review.length) bulk = `<div class="row" style="margin:2px 0 10px">
+      <button id="appall" ${review.length > approvedN ? '' : 'disabled'}>Approve all</button>
+      <button id="pubapp" class="${approvedN ? 'go' : ''}" ${approvedN ? '' : 'disabled'}>Publish approved (${approvedN})</button>
+      ${pubQueue.length ? `<span class="muted">${pubQueue.length} waiting to upload, one at a time</span>` : ''}</div>`;
+    $('panels').innerHTML = panel('review', 'To review', 'panel-review') + bulk + panel('published', 'Published', 'panel-published') + panel('rejected', 'Rejected', 'panel-rejected');
+    $('panels').querySelectorAll('[data-nav]').forEach(b => b.onclick = () => {
+      const [key, d] = b.dataset.nav.split('|');
+      const n = lists[key].length; pidx[key] = (pidx[key] + Number(d) + n) % n; loadStaged();
+    });
+    $('panels').querySelectorAll('[data-watch]').forEach(b => b.onclick = () => openPlayer(b.dataset.watch));
+    if ($('appall')) $('appall').onclick = async () => {
+      const todo = review.filter(it => !it.approved && ['staged','publish_failed','published'].includes(it.status) && !['queued','researching','rendering'].includes(it.long_status));
+      const ch = channels[0] || '', vis = visibility || 'Private';
+      if (!confirm(`Approve all ${todo.length} video(s) to review for ${ch} as ${vis}? (Each keeps the channel already picked for it in its player.)`)) return;
+      for (const it of todo) { try { await api('/api/approve', {id: it.id, on: true, channel: it.channel || ch, visibility: it.visibility || vis}); } catch (e) {} }
+      loadStaged();
+    };
+    if ($('pubapp')) $('pubapp').onclick = async () => {
+      const ap = review.filter(it => it.approved);
+      if (!confirm(`Publish ${ap.length} approved video(s), one after another?\n\n` + ap.map(it => `• ${it.vs_title || it.headline} → ${it.approved.channel} (${it.approved.visibility})`).join('\n'))) return;
+      try { const q = await api('/api/publish_approved', {}); pubQueue = q.queue || []; } catch (e) { alert(e.message); }
+      loadStaged();
+    };
+  } catch (e) { $('panels').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+
+function openPlayer(id) {
+  const w = window.open('/static/player.html?id=' + encodeURIComponent(id), 'nrplayer', 'width=900,height=780');
+  if (w) w.focus(); else alert('The player popup was blocked — allow popups for this page, then try again.');
+}
+window.addEventListener('message', e => { if (e.data && e.data.type === 'nr-action') { loadStaged(); status(); } });
+
+$('refresh').onclick = () => loadInbox(true);
+$('addbtn').onclick = async () => {
+  $('addbtn').disabled = true; $('addmsg').textContent = 'Adding to the Newsroom Inbox doc…';
+  try { await api('/api/inbox/add', {headline: $('addh').value, url: $('addu').value, pitch: $('addp').value});
+        $('addmsg').textContent = 'Added.'; $('addh').value = $('addu').value = $('addp').value = ''; offset = 0; loadInbox(); }
+  catch (e) { $('addmsg').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  $('addbtn').disabled = false;
+};
+$('more').onclick = () => { offset += 5; loadInbox(); };
+$('alertbtn').onclick = async () => {
+  const t = $('topic').value.trim(); if (!t) return;
+  $('alertbtn').disabled = true; $('alertmsg').textContent = 'Opening Google Alerts…';
+  try { const r = await api('/api/alerts', {topic: t}); $('alertmsg').textContent = r.message; }
+  catch (e) { $('alertmsg').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  $('alertbtn').disabled = false;
+};
+status(); loadInbox(); active(); loadStaged(); loadStyle();
+$('stadd').onclick = async () => {
+  const rule = $('strule').value.trim(); if (!rule) return;
+  try { await api('/api/style', {rule, area: $('starea').value}); $('strule').value = ''; loadStyle(); } catch (e) { alert(e.message); }
+};
+setInterval(status, 5000); setInterval(active, 5000); setInterval(loadStaged, 8000); setInterval(() => loadInbox(), 15000);
+</script>
+</body>
+</html>

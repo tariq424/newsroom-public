@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Newsroom player</title>
+<style>
+:root{--bg:#f3f0e9;--panel:#ffffff;--line:#ccd3da;--text:#1d2733;--dim:#5d6b7a;--acc:#d99400;--ok:#1a9e6b;--bad:#d93a3a;--blue:#2f7fe0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,Segoe UI,system-ui,sans-serif;padding:16px}
+h2{font-size:18px;margin:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+video{width:100%;max-height:56vh;background:#000;border-radius:8px;margin:10px 0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+button{background:#ffffff;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px 14px;cursor:pointer;font:inherit}
+button.primary{background:var(--acc);color:#111;border-color:var(--acc);font-weight:700}
+button.go{background:#2e7d32;color:#fff;border-color:#2e7d32;font-weight:700}
+button:disabled{opacity:.45;cursor:default}
+select{background:#ffffff;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px 9px;font:inherit}
+textarea{flex:1;min-width:240px;background:#ffffff;color:var(--text);border:1px solid var(--line);border-radius:7px;padding:8px 9px;font:inherit;font-size:16px}
+.status{font-size:13px;color:var(--acc)}
+.err{color:var(--bad);font-size:13px;white-space:pre-wrap}
+.muted{color:var(--dim);font-size:13px}
+.pubtag{background:#2e7d32;color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;vertical-align:middle}
+.newtag{background:#f5c542;color:#111;font-size:11px;padding:2px 6px;border-radius:4px;vertical-align:middle}
+.rejtag{background:#b3261e;color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;vertical-align:middle}
+a{color:var(--blue)}
+</style>
+</head>
+<body>
+<div class="card" id="app"><p class="muted">Loading…</p></div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path, body) {
+  const r = await fetch(path, body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : {});
+  const j = await r.json().catch(() => ({error: 'HTTP ' + r.status}));
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+const qs = new URLSearchParams(location.search);
+const ID = qs.get('id') || '';
+let kind = qs.get('kind') || '';
+let channels = [], visibility = 'Private', it = null;
+
+function done(action) {
+  try { if (window.opener && !window.opener.closed) window.opener.postMessage({type: 'nr-action', action}, '*'); } catch (e) {}
+  document.body.innerHTML = '<div class="card"><h2>Done.</h2><p class="muted">This window will close itself…</p></div>';
+  setTimeout(() => window.close(), 600);
+}
+
+async function load() {
+  try {
+    const [st, s] = await Promise.all([api('/api/staged?all=1'), api('/api/status')]);
+    channels = s.channels || []; visibility = s.visibility || 'Private';
+    it = (st.items || []).find(x => x.id === ID);
+    if (!it) { $('app').innerHTML = '<div class="err">That video is no longer in the Newsroom lists.</div>'; return; }
+    const kinds = it.kinds || ['short'];
+    if (!kinds.includes(kind)) kind = kinds[kinds.length - 1];
+    render();
+  } catch (e) { $('app').innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+
+function render() {
+  const kinds = it.kinds || ['short'];
+  const pubs = it.published || {};
+  const remaining = kinds.filter(k => !pubs[k]);
+  const prog = it.publish_progress || {};
+  const rejected = it.status === 'rejected';
+  const tag = rejected ? '<span class="rejtag">REJECTED</span>' : !remaining.length ? '<span class="pubtag">PUBLISHED</span>' : (it.status === 'published' ? '<span class="pubtag">PARTLY PUBLISHED</span>' : '<span class="newtag">TO REVIEW</span>');
+  const pcs = it.pub_channels || {};
+  const onChans = Object.keys(pcs).length ? Object.keys(pcs) : (it.channel && Object.keys(pubs).length ? [it.channel] : []);
+  const pubKinds = kinds.filter(k => pubs[k]);
+  const rsKinds = it.status === 'rejected' ? kinds : pubKinds;
+  const otherChans = channels.filter(c => !onChans.includes(c));
+  const canAct = !rejected && remaining.length > 0;
+  const busy = ['queued','researching','rendering'].includes(it.long_status);
+  const pubEnabled = canAct && (['staged','publish_failed'].includes(it.status) || (it.status === 'published' && remaining.length)) && !busy;
+  $('app').innerHTML = `
+    <div class="row" style="justify-content:space-between"><h2>${tag} ${esc(it.vs_title || it.headline)}</h2><button onclick="window.close()">Close ✕</button></div>
+    <div class="status">${esc(it.status)}${it.channel ? ' · ' + esc(it.channel) : ''} · job ${esc(it.job)}</div>
+    ${it.error ? `<div class="err">${esc(it.error)}</div>` : ''}
+    ${kinds.length > 1 ? `<div class="row">${kinds.map(k => `<button data-kind="${k}" ${k === kind ? 'class="primary"' : ''}>${k === 'long' ? 'Explainer' : 'Short'}</button>`).join('')}</div>` : ''}
+    <video controls autoplay preload="metadata" src="/media/${encodeURIComponent(it.id)}/${kind}"></video>
+    ${Object.entries(prog).map(([k, v]) => `<div class="muted">${esc(k)}: ${esc(v.status)} ${esc((v.last || {}).message || '')}</div>`).join('')}
+    ${Object.entries(pubs).map(([k, u]) => u ? `<div><a href="${esc(u)}" target="_blank" rel="noopener">${esc(k)}: ${esc(u)}</a></div>` : '').join('')}
+    ${onChans.length ? `<div class="muted">On YouTube: ${onChans.map(esc).join(', ')}</div>` : ''}
+    ${it.presenter_note ? `<div class="muted">Presenter ${esc(it.presenter_note)}</div>` : ''}
+    ${it.long_status && it.long_status !== 'done' ? `<div class="${it.long_status === 'failed' ? 'err' : 'muted'}">Explainer: ${esc(it.long_status)}${it.long_stage ? ' – ' + esc(it.long_stage) : ''}${it.long_error ? ' – ' + esc(it.long_error) : ''}</div>` : ''}
+    ${canAct ? `<div class="row">
+      <select id="chan">${channels.map(c => `<option value="${esc(c)}" ${c === it.channel ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
+      <select id="vis">${['Private','Unlisted','Public'].map(v => `<option ${v === (it.visibility || visibility) ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      ${remaining.length > 1 ? `<select id="kinds"><option value="long,short">Both (explainer, then Short with its link)</option><option value="short">Short only</option><option value="long">Explainer only</option></select>` : ''}
+    </div>
+    <div class="row">
+      <button class="primary" id="pub" ${pubEnabled ? '' : 'disabled'}>${it.status === 'publish_failed' ? 'Retry upload (same video)' : 'Publish to YouTube'}</button>
+      ${it.approved ? `<button class="go" id="unappr">✓ Approved (${esc(it.approved.channel)}, ${esc(it.approved.visibility)}) — undo</button>` : `<button id="appr">Approve for publish</button>`}
+      ${['staged','publish_failed'].includes(it.status) ? '<button id="rej">Reject</button>' : ''}
+    </div>` : ''}
+    ${it.move_pending ? `<div class="card" style="background:#fde8e8;border-color:#b3261e;margin:10px 0">
+      <b>Move waiting:</b> this video is uploaded to <b>${esc(it.move_pending.to)}</b> and still live on <b>${esc(it.move_pending.from)}</b>.<br>
+      Deleting it from ${esc(it.move_pending.from)} is permanent — YouTube has no true move: the old link, views and comments go away for good.
+      <div class="row"><button class="primary" id="mdel">Delete from ${esc(it.move_pending.from)} now</button>
+      <button id="mcancel">Cancel move — keep it on both</button></div></div>` : ''}
+    ${!it.move_pending && (it.status === 'published' || it.status === 'rejected') && rsKinds.length ? `<div style="margin-top:12px"><h3 style="margin:0 0 6px">${it.status === 'rejected' ? 'Publish to a channel' : 'Submit again / move'}</h3>
+      <div class="row">
+      <select id="rchan">${otherChans.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select>
+      <select id="rvis">${['Private','Unlisted','Public'].map(v => `<option ${v === (it.visibility || visibility) ? 'selected' : ''}>${v}</option>`).join('')}</select>
+      ${rsKinds.length > 1 ? `<select id="rkinds"><option value="long,short">Both (explainer, then Short)</option><option value="short">Short only</option><option value="long">Explainer only</option></select>` : ''}
+      </div>
+      ${otherChans.length ? `<div class="row"><button id="rsub">${it.status === 'rejected' ? 'Publish to this channel' : 'Submit again to this channel'}</button>
+      ${it.status === 'published' && it.channel ? '<button id="rmove">Move to this channel instead</button>' : ''}</div>
+      <div class="muted">Submit again: the video ends up on both channels. Move: it uploads there first; deleting it from ${esc(it.channel || 'the old channel')} happens only after that upload succeeds, and only when you confirm it separately.</div>`
+      : '<div class="muted">This video is already on every channel.</div>'}
+      </div>` : ''}
+    ${!kinds.includes('long') && !busy && ['staged','publish_failed'].includes(it.status) ? '<div class="row"><button id="mklong">Make explainer too</button></div>' : ''}
+    <div class="row" style="align-items:flex-start"><textarea id="fbnote" rows="2" placeholder="Feedback (what to do differently from now on — becomes a house-style rule)"></textarea>
+      <button id="fbsend">Teach</button></div>
+    <div class="muted" id="fbmsg">${(it.feedback || []).length ? (it.feedback.length + ' note(s) given on this video') : 'Your notes become house-style rules for every later video.'}</div>`;
+  document.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { kind = b.dataset.kind; render(); });
+  if ($('pub')) $('pub').onclick = async () => {
+    const ch = $('chan').value, vis = $('vis').value;
+    if (!confirm(`Publish "${it.vs_title || it.headline}" to ${ch} as ${vis}?`)) return;
+    $('pub').disabled = true;
+    const ks = $('kinds') ? $('kinds').value.split(',') : remaining;
+    try { await api('/api/publish', {id: it.id, channel: ch, visibility: vis, kinds: ks}); done('publish'); } catch (e) { alert(e.message); $('pub').disabled = false; }
+  };
+  if ($('appr')) $('appr').onclick = async () => {
+    const ks = $('kinds') ? $('kinds').value.split(',') : null;
+    try { await api('/api/approve', {id: it.id, on: true, channel: $('chan').value, visibility: $('vis').value, kinds: ks}); done('approve'); } catch (e) { alert(e.message); }
+  };
+  if ($('unappr')) $('unappr').onclick = async () => {
+    try { await api('/api/approve', {id: it.id, on: false}); done('approve'); } catch (e) { alert(e.message); }
+  };
+  if ($('rej')) $('rej').onclick = async () => {
+    const reason = prompt(`Reject "${it.vs_title || it.headline}"? It leaves the review list.\nWhy? (optional: the reason teaches the house style)`, $('fbnote').value || '');
+    if (reason === null) return;
+    try { await api('/api/reject', {id: it.id, reason}); done('reject'); } catch (e) { alert(e.message); }
+  };
+  if ($('mklong')) $('mklong').onclick = async () => {
+    try { await api('/api/explainer', {id: it.id}); load(); } catch (e) { alert(e.message); }
+  };
+  if ($('mdel')) $('mdel').onclick = async () => {
+    if (!confirm(`Delete "${it.vs_title || it.headline}" from ${it.move_pending.from} permanently?\n\nYouTube has no true move: the old link, its views and comments are gone for good. The copy on ${it.move_pending.to} stays.`)) return;
+    try { await api('/api/move/delete', {id: it.id}); done('move'); } catch (e) { alert(e.message); }
+  };
+  if ($('mcancel')) $('mcancel').onclick = async () => {
+    try { await api('/api/move/cancel', {id: it.id}); done('move-cancel'); } catch (e) { alert(e.message); }
+  };
+  const rsGo = async (move) => {
+    const ch = $('rchan').value, vis = $('rvis').value;
+    const rk = $('rkinds') ? $('rkinds').value.split(',') : rsKinds;
+    if (move && !confirm(`Move "${it.vs_title || it.headline}" to ${ch}?\n\nStep 1: upload it to ${ch}. Step 2: deleting it from ${it.channel} — only after the upload succeeds, and only when you confirm it separately.`)) return;
+    if (!move && !confirm(`${it.status === 'rejected' ? 'Publish' : 'Submit again'} "${it.vs_title || it.headline}" to ${ch} as ${vis}?`)) return;
+    try { await api('/api/resubmit', {id: it.id, channel: ch, visibility: vis, kinds: rk, move}); done(move ? 'move' : 'resubmit'); } catch (e) { alert(e.message); }
+  };
+  if ($('rsub')) $('rsub').onclick = () => rsGo(false);
+  if ($('rmove')) $('rmove').onclick = () => rsGo(true);
+  $('fbsend').onclick = async () => {
+    const note = $('fbnote').value.trim(); if (!note) return;
+    $('fbsend').disabled = true; $('fbmsg').textContent = 'Learning...';
+    try {
+      const r = await api('/api/feedback', {id: it.id, note});
+      $('fbnote').value = '';
+      $('fbmsg').textContent = r.added.length ? 'Learned: ' + r.added.map(x => x.rule).join(' | ') : 'Noted (nothing general to learn from it).';
+    } catch (e) { $('fbmsg').textContent = e.message; }
+    $('fbsend').disabled = false;
+  };
+}
+load();
+</script>
+</body>
+</html>

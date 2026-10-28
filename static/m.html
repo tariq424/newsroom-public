@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Newsroom">
+<title>Newsroom</title>
+<style>
+:root{--bg:#f3f0e9;--panel:#ffffff;--line:#ccd3da;--text:#1d2733;--dim:#5d6b7a;--acc:#d99400;--ok:#1a9e6b;--bad:#d93a3a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px -apple-system,system-ui,sans-serif;padding:12px 16px 40px}
+h1{font-size:18px;margin:4px 0 12px}h1 b{color:var(--acc)}.muted{color:var(--dim);font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+h3{font-size:16px;margin:0 0 6px;line-height:1.3}video{width:100%;max-height:70vh;background:#000;border-radius:8px;margin:8px 0}
+.row{display:flex;gap:8px;flex-wrap:wrap}select,button{font-size:16px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:#ffffff;color:var(--text)}
+button.primary{background:var(--acc);color:#111;border-color:var(--acc);font-weight:700;flex:1}button.done{background:var(--ok);color:#fff;border-color:var(--ok)}
+.tag{font-size:11px;padding:2px 6px;border-radius:4px;margin-right:6px}.new{background:var(--acc);color:#111}.pub{background:var(--ok);color:#fff}
+.err{color:var(--bad);font-size:14px}a{color:#2f7fe0}
+</style></head><body>
+<h1>THE <b>NEWSROOM</b> <span class="muted" id="sum"></span></h1>
+<div id="list"><p class="muted">Loading…</p></div>
+<script>
+const $ = id => document.getElementById(id), esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(path, body) {
+  const r = await fetch(path, body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {});
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.status); return j;
+}
+let channels = [], vis = 'Private', open = null;
+async function load() {
+  try {
+    const [st, s] = await Promise.all([api('/api/staged'), api('/api/status')]);
+    channels = s.channels || []; vis = s.visibility || 'Private';
+    const items = st.items.map(it => ({...it, remaining: (it.kinds || ['short']).filter(k => !((it.published || {})[k]))}));
+    const todo = items.filter(it => it.remaining.length && it.status !== 'publishing');
+    $('sum').textContent = todo.length + ' to review';
+    $('list').innerHTML = items.sort((a, b) => (b.remaining.length > 0) - (a.remaining.length > 0)).map(it => {
+      const kinds = it.kinds || ['short'], k = kinds.includes('short') ? 'short' : 'long', busy = ['queued','researching','rendering'].includes(it.long_status);
+      const links = Object.entries(it.published || {}).map(([kk, u]) => u ? `<div><a href="${esc(u)}">${esc(kk)}: ${esc(u)}</a></div>` : '').join('');
+      return `<div class="card"><h3><span class="tag ${it.remaining.length ? 'new' : 'pub'}">${it.remaining.length ? (it.status === 'publishing' ? 'PUBLISHING' : 'TO REVIEW') : 'PUBLISHED'}</span>${esc(it.vs_title || it.headline)}</h3>
+        ${open === it.id ? `<video controls playsinline preload="metadata" src="/media/${encodeURIComponent(it.id)}/${k}"></video>
+          ${it.error ? `<div class="err">${esc(it.error)}</div>` : ''}${links}
+          ${it.remaining.length && it.status !== 'publishing' ? `<div class="row">
+            <select id="ch">${channels.map(c => `<option ${c === it.channel ? 'selected' : ''}>${c}</option>`).join('')}</select>
+            <select id="vi">${['Private','Unlisted','Public'].map(v => `<option ${v === vis ? 'selected' : ''}>${v}</option>`).join('')}</select>
+            ${it.remaining.length > 1 ? `<select id="ki"><option value="long,short">Both</option><option value="short">Short only</option><option value="long">Explainer only</option></select>` : ''}</div>
+            <div class="row" style="margin-top:8px"><button class="primary" ${busy ? 'disabled' : ''} onclick="pub('${it.id}')">${busy ? 'Waiting for explainer' : 'Publish'}</button>
+            ${it.status !== 'published' ? `<button onclick="rej('${it.id}')">Reject</button>` : ''}</div>` : ''}`
+        : `<button onclick="open='${it.id}';load()">${it.remaining.length ? 'Review' : 'Show'}</button>`}</div>`;
+    }).join('') || '<p class="muted">Nothing in Staging.</p>';
+  } catch (e) { $('list').innerHTML = `<p class="err">${esc(e.message)}</p>`; }
+}
+async function pub(id) {
+  const ch = $('ch').value, vi = $('vi').value, ks = $('ki') ? $('ki').value.split(',') : undefined;
+  if (!confirm(`Publish to ${ch} as ${vi}?`)) return;
+  try { await api('/api/publish', {id, channel: ch, visibility: vi, kinds: ks}); } catch (e) { alert(e.message); } load();
+}
+async function rej(id) { if (!confirm('Reject this video?')) return; try { await api('/api/reject', {id}); } catch (e) { alert(e.message); } open = null; load(); }
+load(); setInterval(() => { const v = document.querySelector('video'); if (!open || (v && v.paused && !document.activeElement?.matches('select'))) load(); }, 20000);
+</script></body></html>

@@ -1,0 +1,41 @@
+{
+  "port": 42040,
+  "video_studio": "http://127.0.0.1:42021",
+  "publisher": "http://127.0.0.1:42030",
+  "video_studio_jobs": "F:\\videos_test\\jobs",
+  "staging_dir": "F:\\videos\\newsroom\\staging",
+  "state_file": "F:\\videos\\newsroom\\newsroom_state.json",
+  "inbox_source": "doc",
+  "doc_id": "<inbox Google Doc id>",
+  "inbox_file": "F:\\videos\\newsroom\\inbox_mock.txt",
+  "chrome_profile": "F:\\videos\\newsroom\\chrome_profile",
+  "chrome_path": "",
+  "headless": true,
+  "inbox_refresh_minutes": 60,
+  "mode": "both",
+  "minutes": 15,
+  "short_secs": 165,
+  "audience": "beginner",
+  "channels": [
+    "yousocial",
+    "moonspots",
+    "youtour"
+  ],
+  "visibility": "Private",
+  "ignore_keywords": [
+    "coinbase"
+  ],
+  "auto_generate": true,
+  "auto_retries": 1,
+  "min_minutes_between_videos": 60,
+  "max_videos_per_day": 10,
+  "laptop": {
+    "enabled": true,
+    "name": "tariq-HP-EliteBook-840-G5.local",
+    "ip": "192.168.40.55",
+    "subnet": "192.168.40",
+    "mac": "",
+    "port": 42021,
+    "backlog": 10
+  }
+}

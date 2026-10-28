@@ -1,0 +1,20 @@
+<!doctype html><html><body>
+<!-- Stand-in for google.com/alerts: the Create Alert panel only appears after real key presses (keyup), like the real page. -->
+<div id="query_div"><input type="text" aria-label="Create an alert about..."></div>
+<div class="alert_buttons" style="display:none"><span id="create_alert" role="button" tabindex="0"> Create Alert </span></div>
+<div id="count">My alerts (2)</div>
+<div id="manage-alerts-div"><ul>
+  <li class="alert_instance"><div class="query_div"><span>bitcoin</span></div></li>
+  <li class="alert_instance"><div class="query_div"><span>aeva IPO</span></div></li>
+</ul></div>
+<script>
+const inp = document.querySelector('#query_div input');
+inp.addEventListener('keyup', () => { document.querySelector('.alert_buttons').style.display = inp.value ? '' : 'none'; });
+document.getElementById('create_alert').onclick = () => {
+  const li = document.createElement('li'); li.className = 'alert_instance';
+  li.innerHTML = '<div class="query_div"><span></span></div>'; li.querySelector('span').textContent = inp.value;
+  document.querySelector('#manage-alerts-div ul').appendChild(li);
+  document.getElementById('count').textContent = 'My alerts (' + document.querySelectorAll('li.alert_instance').length + ')';
+  inp.value = ''; document.querySelector('.alert_buttons').style.display = 'none';
+};
+</script></body></html>
